@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+*.log
+.idea/
+.vscode/
+
+# Locally exported captures and reports
+sbus-capture-*.json
+sbus-frames-*.csv
+sbus-verification-report-*.html

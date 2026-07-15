@@ -1,0 +1,16 @@
+{
+  "name": "sbus-rs422-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source SBUS-to-RS-422 bridge and browser-based validation toolchain",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sailiono/sbus-rs422-bridge.git"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8765",
+    "test": "node --test tests/*.test.js"
+  }
+}

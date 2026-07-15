@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>SBUS / 422 Signal Lab</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div>
+          <strong>SBUS / 422</strong>
+          <span>SIGNAL LAB</span>
+        </div>
+      </div>
+      <div class="serial-spec" aria-label="串口参数">
+        <span>100000 BAUD</span><b>8</b><em>E</em><b>2</b>
+      </div>
+      <div class="top-actions">
+        <button id="demoButton" class="button ghost" type="button">运行演示</button>
+        <button id="connectButton" class="button primary" type="button">
+          <span class="button-dot"></span>连接串口
+        </button>
+        <button id="stopButton" class="button danger" type="button" hidden>停止采集</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="scope-note" aria-label="测量边界">
+        <span class="scope-icon">i</span>
+        <p><strong>测量边界</strong> 串口波形由 USB 收到的字节按 100 kbit/s、8E2 重建；逻辑分析区域显示导入的原始数字采样。差分电压、共模和模拟边沿仍需示波器验证。</p>
+        <div class="scope-tags">
+          <span id="protocolSupport" class="support-tag">协议待识别</span>
+          <span id="serialSupport" class="support-tag">正在检查浏览器…</span>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="实时统计">
+        <article class="metric-card status-card">
+          <span>采集状态</span>
+          <div><i id="statusLight"></i><strong id="connectionState">未连接</strong></div>
+          <small id="deviceLabel">等待设备</small>
+        </article>
+        <article class="metric-card">
+          <span>有效帧</span>
+          <strong id="frameCount">0</strong>
+          <small id="byteCount">0 bytes</small>
+        </article>
+        <article class="metric-card">
+          <span>帧率</span>
+          <div><strong id="frameRate">—</strong><b>Hz</b></div>
+          <small id="frameInterval">周期 — ms</small>
+        </article>
+        <article class="metric-card">
+          <span>到达抖动 σ</span>
+          <div><strong id="jitter">—</strong><b>ms</b></div>
+          <small id="timingQuality">USB 到达时间</small>
+        </article>
+        <article class="metric-card">
+          <span>同步异常</span>
+          <strong id="rejectCount">0</strong>
+          <small id="rejectDetail">运行期丢弃字节 · 等待首次同步</small>
+        </article>
+        <article class="metric-card">
+          <span>安全标志</span>
+          <div><strong id="safetyCount">0</strong><b>帧</b></div>
+          <small id="safetyDetail">Lost 0 · Failsafe 0</small>
+        </article>
+      </section>
+
+      <section class="panel waveform-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">LOGICAL RECONSTRUCTION</span>
+            <h2>串口逻辑波形</h2>
+          </div>
+          <div class="wave-controls">
+            <label for="byteWindow">窗口起始字节 <output id="byteWindowLabel">B0–B3</output></label>
+            <input id="byteWindow" type="range" min="0" max="21" value="0" />
+            <button id="freezeButton" class="button compact" type="button" aria-pressed="false">冻结</button>
+          </div>
+        </div>
+        <div class="wave-stage">
+          <canvas id="waveform" height="250" aria-label="重建的 USB UART 与原始反向 SBUS 逻辑波形"></canvas>
+          <div id="waveEmpty" class="wave-empty">连接串口或运行演示后显示最后一个完整帧</div>
+        </div>
+        <div class="wave-legend">
+          <span><i class="legend-usb"></i>USB-UART 逻辑（解码侧）</span>
+          <span><i class="legend-sbus"></i>原始 SBUS 逻辑（反相推导）</span>
+          <span>每位 10 μs · 每字节 12 位（Start + 8 Data + Even + 2 Stop）</span>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <section class="panel channel-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">DECODED PAYLOAD</span>
+              <h2>16 路通道</h2>
+            </div>
+            <span class="unit-chip">RAW 0–2047</span>
+          </div>
+          <div id="channelGrid" class="channel-grid" aria-live="polite"></div>
+          <div class="flag-strip">
+            <div><span>CH17</span><strong id="digital17">LOW</strong></div>
+            <div><span>CH18</span><strong id="digital18">LOW</strong></div>
+            <div><span>FRAME LOST</span><strong id="frameLost" class="ok">NO</strong></div>
+            <div><span>FAILSAFE</span><strong id="failsafe" class="ok">NO</strong></div>
+            <div><span>FLAGS</span><strong id="flagsHex">0x00</strong></div>
+            <div><span>FOOTER</span><strong id="footerHex">0x00</strong></div>
+          </div>
+        </section>
+
+        <section class="panel packet-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">RAW EVIDENCE</span>
+              <h2>SBUS 原始包</h2>
+            </div>
+            <span id="latestFrameState" class="state-chip neutral">等待帧</span>
+          </div>
+          <div class="hex-focus">
+            <div class="hex-caption"><span>最近完整帧 · 25 bytes</span><span id="latestTimestamp">— ms</span></div>
+            <code id="latestHex">0F ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· ·· 00</code>
+          </div>
+          <div class="packet-table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>时间</th><th>Δt</th><th>状态</th><th>数据预览</th></tr></thead>
+              <tbody id="packetRows"><tr class="empty-row"><td colspan="5">暂无数据</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel evidence-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">VERIFICATION EVIDENCE</span>
+            <h2>模块可用性证据</h2>
+          </div>
+          <div class="export-actions">
+            <button id="exportJson" class="button compact" type="button">导出捕获</button>
+            <button id="exportCsv" class="button compact" type="button">导出 CSV</button>
+            <button id="exportReport" class="button primary compact" type="button">生成报告</button>
+          </div>
+        </div>
+        <div class="evidence-grid">
+          <article class="evidence-item">
+            <span class="evidence-number">01</span>
+            <div><strong>协议完整性</strong><p id="protocolEvidence">等待有效 SBUS 帧</p></div>
+            <span id="protocolBadge" class="result-badge waiting">待测</span>
+          </article>
+          <article class="evidence-item">
+            <span class="evidence-number">02</span>
+            <div><strong>逐字节一致性</strong><p id="compareEvidence">导入模块输入侧的参考捕获，自动对齐并比较完整 25 字节帧</p></div>
+            <label class="button compact file-button">导入参考<input id="referenceFile" type="file" accept=".json,application/json" /></label>
+          </article>
+          <article class="evidence-item muted-evidence">
+            <span class="evidence-number">03</span>
+            <div><strong>电气与位宽</strong><p>USB 串口不保留模拟波形；请用双通道示波器对比模块输入、A/B 差分输出</p></div>
+            <span class="result-badge external">外部仪器</span>
+          </article>
+        </div>
+        <div class="capture-note">
+          <label for="testNote">本次测试备注</label>
+          <input id="testNote" type="text" placeholder="例如：样机 SN-01，输入 7 ms SBUS，连续运行 10 分钟" />
+          <button id="clearButton" class="button ghost compact" type="button">清空本次数据</button>
+        </div>
+      </section>
+
+      <section class="panel logic-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">SYNCHRONOUS TIME-DOMAIN ANALYSIS</span>
+            <h2>逻辑分析仪输入 / 输出分析</h2>
+          </div>
+          <div class="logic-imports">
+            <label class="button primary compact file-button">导入同步 CSV · CH0/CH1/CH2<input id="logicCombinedFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+          </div>
+        </div>
+        <div class="sync-analysis-note">
+          <strong>同步单文件</strong>
+          <span>测试阶段输入与输出允许共地时，CH0、CH1、CH2 共用同一时间轴，可直接分析传播延迟、边沿对应关系、波特率和完整 SBUS 帧一致性。</span>
+        </div>
+        <div class="isolation-warning">
+          <strong>隔离双文件</strong>
+          <span>需要保持隔离时仍可分两次采集并按 SBUS 帧内容对齐，但不能测传播延迟。</span>
+          <div class="logic-imports isolated-imports">
+            <label class="button compact file-button">导入输入 CH0<input id="logicInputFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+            <label class="button compact file-button">导入输出 CH1/CH2<input id="logicOutputFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+          </div>
+        </div>
+        <div class="logic-summary">
+          <div><span>捕获来源</span><strong id="logicSourceStatus">等待 CSV/TXT</strong></div>
+          <div><span>分析模式</span><strong id="logicModeStatus">同步单文件优先</strong></div>
+          <div><span>差分互补率</span><strong id="logicComplement">—</strong></div>
+          <div><span>输入 / 输出波特率</span><strong id="logicBaud">—</strong></div>
+          <div><span>SBUS 帧一致</span><strong id="logicMatch">—</strong></div>
+          <div><span>传播延迟 中位 / P95</span><strong id="logicDelay">等待同步捕获</strong></div>
+        </div>
+        <div class="logic-toolbar">
+          <span id="logicResult">导入同时包含 Time、CH0、CH1、CH2 的原始数字采样 CSV/TXT。</span>
+          <label for="logicSpan">显示窗口
+            <select id="logicSpan">
+              <option value="0.001">1 ms</option>
+              <option value="0.004" selected>4 ms</option>
+              <option value="0.01">10 ms</option>
+              <option value="0.05">50 ms</option>
+            </select>
+          </label>
+          <input id="logicPosition" type="range" min="0" max="1000" value="0" aria-label="逻辑波形窗口位置" />
+        </div>
+        <div class="logic-stage">
+          <canvas id="logicWaveform" height="292" aria-label="同步或分次采集的三通道实测逻辑波形"></canvas>
+          <div id="logicEmpty" class="wave-empty">导入符合项目交换格式的 CH0、CH1、CH2 原始采样 CSV/TXT</div>
+        </div>
+        <div class="wave-legend logic-legend">
+          <span><i class="legend-input"></i>输入侧 CH0 · SBUS 反向逻辑</span>
+          <span><i class="legend-usb"></i>输出侧 CH1 · 422+</span>
+          <span><i class="legend-sbus"></i>输出侧 CH2 · 422−</span>
+          <span>同步单文件保留真实时间关系 · 隔离双文件仅按帧内容对齐</span>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
