@@ -33,7 +33,16 @@
 - 上位机：可用，已通过标准 SBUS 信号源、桥接样机和 USB→RS-422 链路验证；
 - SBUS 流解析与通用逻辑采集同步/隔离分析：15 项自动测试通过；
 - 硬件开源资料：原理图 PDF 已发布；可编辑源文件、PCB、BOM 和生产文件仍在整理；
+- 对比验证：计划引入一款商用 MCU 型 SBUS→RS-422 协议转换模块，在相同条件下与本项目纯硬件透明桥比较稳定性、错误率和传播延迟；
 - 软件许可证：MIT；`hardware/` 中的硬件资料采用 CERN-OHL-P-2.0。
+
+## 路线图与待办
+
+- [ ] 完成纯硬件桥与商用 MCU 协议转换模块的同条件对比测试；
+- [ ] 发布原始捕获、测试环境、统计口径和可复现报告；
+- [ ] 根据实测结果说明纯硬件透明转换在延迟、确定性和数据透明性方面的价值，不预设结论。
+
+具体测试矩阵、指标定义和明日继续工作的检查清单见 [`docs/comparative-benchmark-plan.md`](docs/comparative-benchmark-plan.md)。
 
 ## 目标细化
 
@@ -166,6 +175,7 @@ Time(s),CH0,CH1,CH2
 - `src/logic-capture.js`：通用逻辑采集 CSV/TXT 解析、UART 解码、帧对齐与时序分析；
 - `src/app.js`：Web Serial 采集、实时界面、导入导出；
 - `docs/protocol-compatibility.md`：SBUS 变体、类 SBUS 协议和常见兼容性陷阱；
+- `docs/comparative-benchmark-plan.md`：纯硬件桥与商用 MCU 转换模块的对比测试待办；
 - `tests/`：协议与逻辑分析自动测试；
 - `hardware/`：硬件设计目标及后续开源资料发布位置；
 - `CONTRIBUTING.md`：贡献、测试数据和安全注意事项。
