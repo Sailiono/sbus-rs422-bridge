@@ -39,6 +39,21 @@ test('stream parser resynchronizes after noise and split chunks', () => {
   assert.equal(parser.protocol, 'sbus');
 });
 
+test('recognizes known S.BUS2 control-frame footers', () => {
+  const frame = encodeSbusFrame(Array(16).fill(992), { footer: 0x04 });
+  const parser = new SbusStreamParser();
+  const parsed = parser.push(Uint8Array.from([...frame, ...frame]), 0);
+  assert.equal(parsed.length, 2);
+  assert.equal(parser.protocol, 'sbus2');
+  assert.equal(parsed[0].footerValid, true);
+});
+
+test('rejects a W.BUS-like extension footer as non-standard SBUS', () => {
+  const frame = encodeSbusFrame(Array(16).fill(992), { footer: 0x01 });
+  const decoded = decodeSbusFrame(frame);
+  assert.equal(decoded.footerValid, false);
+});
+
 test('realistic capture locks after an initial partial frame without reporting a runtime fault', () => {
   const channels = [992, 997, 192, 992, 992, 992, 992, 992, 992, 992, 992, 992, 992, 992, 992, 992];
   const standardFrame = encodeSbusFrame(channels);

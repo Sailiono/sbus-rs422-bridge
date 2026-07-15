@@ -334,9 +334,12 @@ function renderEvidence(stats) {
     ui.protocolEvidence.textContent = `已连续解析 ${stats.frames} 帧；至少采集 10 帧后给出结论`;
     ui.protocolBadge.className = 'result-badge waiting';
     ui.protocolBadge.textContent = '采集中';
+  } else if (parser.protocol === 'sbus2') {
+    ui.protocolEvidence.textContent = `${stats.frames} 个 S.BUS2 RC 控制帧满足结构规则；当前不解析遥测时隙，不能据此证明完整 S.BUS2 总线`;
+    ui.protocolBadge.className = 'result-badge waiting';
+    ui.protocolBadge.textContent = '有限支持';
   } else {
-    const protocol = parser.protocol === 'sbus2' ? 'SBUS2' : '标准 SBUS';
-    ui.protocolEvidence.textContent = `${stats.frames} 帧连续满足 ${protocol} 帧头、25 字节长度和帧尾规则；运行期同步错误 0（初始对齐 ${parser.acquisitionBytes} 字节）`;
+    ui.protocolEvidence.textContent = `${stats.frames} 帧连续满足标准 SBUS 帧头、25 字节长度和帧尾规则；运行期同步错误 0（初始对齐 ${parser.acquisitionBytes} 字节）`;
     ui.protocolBadge.className = 'result-badge pass';
     ui.protocolBadge.textContent = '通过';
   }
@@ -697,11 +700,14 @@ function exportReport() {
     ? `输出极性：${logic.delays.polarity}。CH0、CH1、CH2 来自同一文件和共同时间轴；传播延迟统计使用 ${logic.delays.samples} 个对应边沿。`
     : logic ? `输出极性：${logic.polarity}。输入侧与输出侧为保持电气隔离而分次采集，本结果不包含传播延迟；波形仅按相同 SBUS 帧内容对齐。` : '';
   const logicSection = logic ? `<h2>逻辑分析仪${logic.synchronized ? '同步时域分析' : '隔离双文件分析'}</h2><table><tr><th>输入有效帧</th><th>输出有效帧</th><th>422 互补率</th><th>输入波特率</th><th>输出波特率</th><th>延迟中位数</th><th>延迟 P95</th></tr><tr><td>${logic.inputFrames.length}</td><td>${logic.outputFrames.length}</td><td>${(logic.complementRate * 100).toFixed(4)}%</td><td>${logic.inputBaudRate.toFixed(2)}</td><td>${logic.outputBaudRate.toFixed(2)}</td><td>${delayMedian}</td><td>${delayP95}</td></tr></table><p>${logicNote}</p>` : '';
+  const protocolScope = parser.protocol === 'sbus2'
+    ? '<p class="warn">当前版本仅验证 S.BUS2 的 RC 控制帧，不解析遥测时隙；本报告不能证明完整 S.BUS2 总线透明传输。</p>'
+    : '';
   const report = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>SBUS/422 验证报告</title>
   <style>body{max-width:980px;margin:48px auto;padding:0 28px;color:#1c2523;font:14px/1.65 system-ui}h1{font-size:25px}h2{margin-top:32px;font-size:17px;border-bottom:1px solid #ccd5d2;padding-bottom:8px}table{width:100%;border-collapse:collapse}td,th{padding:9px;border:1px solid #ccd5d2;text-align:left}th{background:#f0f5f3}code{font-family:monospace}.pass{color:#087a50}.warn{color:#9b6110}.note{padding:14px;background:#f4f7f6;border-left:4px solid #5d776f}footer{margin-top:38px;color:#61706c;font-size:12px}@media print{body{margin:0}}</style>
   <body><h1>SBUS 转 RS-422 模块验证报告</h1><p>生成时间：${new Date().toLocaleString('zh-CN')}<br>测试备注：${note}</p>
   <h2>串口配置</h2><table><tr><th>接口</th><th>波特率</th><th>数据格式</th><th>设备</th></tr><tr><td>USB 串口</td><td>100000 bit/s</td><td>8 data · Even parity · 2 stop</td><td>${escapeHtml(state.device)}</td></tr></table>
-  <h2>采集结果</h2><table><tr><th>协议</th><th>有效帧</th><th>帧率</th><th>平均周期</th><th>到达抖动 σ</th><th>运行期同步异常</th><th>初始对齐字节</th></tr><tr><td>${parser.protocol === 'sbus2' ? 'SBUS2' : parser.protocol === 'sbus' ? '标准 SBUS' : '待识别'}</td><td>${stats.frames}</td><td>${stats.frameRate.toFixed(3)} Hz</td><td>${stats.meanInterval.toFixed(3)} ms</td><td>${stats.jitter.toFixed(3)} ms</td><td>${stats.rejectedBytes}</td><td>${parser.acquisitionBytes}</td></tr></table>
+  <h2>采集结果</h2><table><tr><th>协议</th><th>有效帧</th><th>帧率</th><th>平均周期</th><th>到达抖动 σ</th><th>运行期同步异常</th><th>初始对齐字节</th></tr><tr><td>${parser.protocol === 'sbus2' ? 'SBUS2' : parser.protocol === 'sbus' ? '标准 SBUS' : '待识别'}</td><td>${stats.frames}</td><td>${stats.frameRate.toFixed(3)} Hz</td><td>${stats.meanInterval.toFixed(3)} ms</td><td>${stats.jitter.toFixed(3)} ms</td><td>${stats.rejectedBytes}</td><td>${parser.acquisitionBytes}</td></tr></table>${protocolScope}
   <h2>协议与数据结论</h2><p class="${parser.rejectedCandidates || parser.rejectedBytes ? 'warn' : 'pass'}">协议结构：${parser.rejectedCandidates || parser.rejectedBytes ? `运行期丢弃 ${parser.rejectedBytes} 字节并发现 ${parser.rejectedCandidates} 个异常候选帧，请复核原始捕获。` : `${stats.frames ? `串口连续 ${stats.frames} 帧` : `逻辑采集输出 ${logic?.outputFrames.length ?? 0} 帧`}满足帧头、长度和已知帧尾规则；连接时初始对齐 ${parser.acquisitionBytes} 字节不计为运行期错误。`}</p><p>输入/输出逐字节对比：${compareText}</p>${logicSection}
   <h2>安全标志</h2><p>FRAME LOST：${stats.lostFrames} 帧；FAILSAFE：${stats.failsafeFrames} 帧。</p>
   <h2>测量边界</h2><p class="note">USB 串口区域的逻辑波形和位时间由解码字节按 100 kbit/s、8E2 重建。${logic?.synchronized ? '同步单文件模式使用 CH0、CH1、CH2 的共同时间轴，可分析数字边沿传播延迟；采集前必须确认测试接地不会破坏隔离或安全要求。' : '隔离双文件模式只按相同 SBUS 帧内容对齐，不能据此计算传播延迟。'}逻辑分析仪不能替代差分示波器验证 RS-422 幅值、共模范围和模拟边沿。</p>
