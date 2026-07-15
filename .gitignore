@@ -3,6 +3,7 @@ node_modules/
 *.log
 .idea/
 .vscode/
+tmp/
 
 # Locally exported captures and reports
 sbus-capture-*.json
