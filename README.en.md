@@ -86,14 +86,14 @@ For specific components, polarity selection, and the mode table, see [`hardware/
 - Host tool: usable; validated with a standard SBUS source, the bridge prototype, and a USB→RS-422 link.
 - SBUS stream parsing and generic logic-capture sync/isolated analysis: 15 automated tests pass.
 - Hardware open-source material: schematic PDF published; editable sources, PCB, BOM, and fabrication files still being prepared.
-- Comparative validation: plan to introduce a commercial MCU-based SBUS→RS-422 module and compare stability, error rate, and propagation delay with this project's pure-hardware transparent bridge under identical conditions.
+- Capability validation: logic-analyzer capture of SBUS input and the bridge's RS-422 output (~108.8 s) verified 100% data transparency, zero lost frames, unchanged baud rate, long-term stability, and zero injected jitter; see [`docs/自研模块能力验证.md`](docs/自研模块能力验证.md).
 - Software license: MIT; hardware material in `hardware/` is licensed under CERN-OHL-P-2.0.
 
 ## Roadmap and TODO
 
-- [ ] Complete same-condition comparison tests between the pure-hardware bridge and a commercial MCU conversion module.
-- [ ] Publish raw captures, test environment, statistical definitions, and a reproducible report.
-- [ ] Based on measured results, explain the value of pure-hardware transparent conversion in latency, determinism, and data transparency — without preset conclusions.
+- [x] Verify data transparency, zero lost frames, and zero injected jitter of the pure-hardware bridge.
+- [ ] Cover stability under extreme conditions (long cable, wide temperature, supply variation, strong interference).
+- [ ] If comparing with a commercial module, use a **same-protocol SBUS transparent module**; modules with a different protocol (e.g. Modbus-RTU slave) are not directly comparable. Scope of the dual-UART analysis method is in [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
 
 For the detailed test matrix, metric definitions, and dual-module analysis method, see [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
 
