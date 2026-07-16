@@ -19,6 +19,50 @@
   --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2f1;
+  --panel: #ffffff;
+  --panel-2: #f4f7f6;
+  --panel-3: #e8eeec;
+  --line: #cdd5d2;
+  --line-soft: #e1e7e5;
+  --text: #182320;
+  --muted: #5c6b67;
+  --faint: #93a39e;
+  --signal: #0a8a5a;
+  --signal-soft: rgba(10, 138, 90, 0.1);
+  --cyan: #1f8fb0;
+  --cyan-soft: rgba(31, 143, 176, 0.08);
+  --warn: #9b6110;
+  --danger: #c33a32;
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 75% -10%, rgba(10, 138, 90, 0.08), transparent 28rem),
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, 100% 48px, auto;
+}
+
+:root[data-theme="light"] .topbar { background: rgba(255, 255, 255, 0.92); }
+:root[data-theme="light"] .button.primary { color: #ffffff; }
+:root[data-theme="light"] .button.primary:hover { background: #0c9c66; }
+:root[data-theme="light"] .panel { background: rgba(255, 255, 255, 0.96); }
+:root[data-theme="light"] .scope-note { background: rgba(232, 245, 240, 0.7); color: #4a5754; }
+:root[data-theme="light"] .status-card { background: linear-gradient(135deg, var(--signal-soft), transparent 70%), var(--panel); }
+:root[data-theme="light"] .status-card div i { background: #b6c4c0; box-shadow: 0 0 0 5px rgba(182, 196, 192, .25); }
+:root[data-theme="light"] .channel { background: #f4f7f6; border-left-color: #cfe0db; }
+:root[data-theme="light"] .channel-track { background: #dbe4e1; }
+:root[data-theme="light"] .hex-focus { background: #f7fafa; }
+:root[data-theme="light"] .hex-focus code { color: #2c3a36; }
+:root[data-theme="light"] .logic-toolbar { background: #f0f4f3; }
+:root[data-theme="light"] .capture-note { background: #f0f4f3; }
+:root[data-theme="light"] th { background: #eef3f2; }
+:root[data-theme="light"] td { color: #44514d; }
+:root[data-theme="light"] .toast { background: #ffffff; box-shadow: 0 14px 45px rgba(0, 0, 0, .14); }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {

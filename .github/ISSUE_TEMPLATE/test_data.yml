@@ -1,0 +1,24 @@
+name: Test data / 测试数据提交
+description: 提交逻辑分析仪捕获、对比结果或验证报告
+labels: [test-data]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 测试摘要
+      description: 被测对象、接线方式（同步单文件 / 隔离双文件）、测试结论。
+    valid: true
+  - type: textarea
+    id: config
+    attributes:
+      label: 测试配置
+      description: 模块编号/版本、线缆长度、120Ω 端接、采样率、是否允许共地、USB→RS-422 型号。
+  - type: checkboxes
+    id: format
+    attributes:
+      label: 数据格式确认
+      options:
+        - label: 捕获文件符合 README 的“逻辑采集文件交换格式”（Time/CH0/CH1/CH2）。
+          required: true
+        - label: 未提交设备序列号、个人路径或敏感遥控数据。
+          required: true

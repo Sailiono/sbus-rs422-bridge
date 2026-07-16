@@ -1,0 +1,38 @@
+name: Bug report / 问题报告
+description: 报告上位机、解析或文档中的异常
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 发生了什么？与预期行为有何不同？
+    valid: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 如何稳定复现？包含浏览器、打开方式（localhost 或 HTTPS）、硬件组合。
+    valid: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 相关模块
+      options:
+        - Web Serial 采集 (app.js)
+        - SBUS 编解码 / 流解析 (sbus.js)
+        - 逻辑采集分析 (logic-capture.js)
+        - 文档 / 仓库
+        - 硬件 / 原理图
+  - type: textarea
+    id: env
+    attributes:
+      label: 环境
+      description: 浏览器与版本、操作系统、USB→RS-422 适配器、被测模块版本。
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 安全确认
+      options:
+        - label: 我确认未提交设备序列号、个人路径或可用于实际控制的敏感遥控数据。
+          required: true

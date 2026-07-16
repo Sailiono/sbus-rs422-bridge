@@ -1,5 +1,10 @@
 # SBUS-RS422 Bridge
 
+[![CI](https://github.com/Sailiono/sbus-rs422-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Sailiono/sbus-rs422-bridge/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-15%20passing-brightgreen)](#测试)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#)
+[![Hardware: CERN-OHL-P-2.0](https://img.shields.io/badge/hardware-CERN--OHL--P--2.0-orange)](#)
+
 一套面向遥控与嵌入式系统的开源 SBUS → RS-422 透明桥接方案，包含隔离硬件、浏览器上位机和可复现的验证流程。
 
 当前仓库发布已经完成实机验证的上位机软件和第一版硬件原理图 PDF。可编辑原理图源文件、PCB、BOM 和制造文件仍在整理中；现有资料可以用于理解和评审设计，但不应视为完整的可生产硬件包。
@@ -12,6 +17,52 @@
 标准反向 SBUS ──> 可选反向器 ──> 隔离 RS-422 桥 ──A/B──> USB→RS-422 ──> 上位机
        │           当前启用             │
        └── CH0 ─────── 逻辑分析仪 ────── CH1/CH2 ──┘  （仅在明确允许共地的测试阶段）
+```
+
+## 系统架构
+
+```text
+┌─────────────┐   反向 SBUS    ┌──────────────────────┐
+│ SBUS 信号源 │ ─────────────▶ │ 可选反向器（当前启用） │
+└─────────────┘                └──────────┬───────────┘
+                                          │ 非反向逻辑
+                                          ▼
+                                 ┌──────────────────┐   差分 A/B
+                                 │ 隔离 RS-422 收发器 │ ───────────▶ USB→RS-422 ──▶ 电脑
+                                 └──────────────────┘                           │
+┌─────────────┐  CH0 输入                                    CH1/CH2 输出      ▼
+│ 逻辑分析仪  │ ─────────────────────────────────────────────────────▶ 浏览器上位机（本仓库）
+└─────────────┘   共同时间轴 / 分次隔离采集（仅测试阶段允许共地）
+```
+
+上位机软件分层：
+
+```text
+index.html ── styles.css ── src/app.js (Web Serial + 实时界面 + 导入导出)
+                        └── src/sbus.js        (帧编解码 / 流解析 / 统计 / 捕获对比)
+                        └── src/logic-capture.js (通用逻辑采集 CSV 解析 / UART 解码 / 帧对齐 / 延迟)
+                                │
+                            tests/*.test.js (node --test，15 项)
+```
+
+## 目录结构
+
+```text
+sbus-rs422-bridge/
+├── .github/workflows/ci.yml   # 跨平台自动测试
+├── docs/
+│   ├── comparative-benchmark-plan.md   # 纯硬件桥 vs 商用 MCU 模块对比计划
+│   └── protocol-compatibility.md       # SBUS 变体与类 SBUS 协议陷阱
+├── hardware/                  # 原理图 PDF 与硬件设计目标（可编辑源待发布）
+├── src/
+│   ├── sbus.js                # 无界面 SBUS 核心
+│   ├── logic-capture.js       # 通用逻辑采集分析
+│   └── app.js                 # Web Serial 上位机
+├── tests/                     # 协议与逻辑分析自动测试
+├── index.html / styles.css    # 界面
+├── CONTRIBUTING.md
+├── LICENSE                    # 软件 MIT
+└── README.md
 ```
 
 ## 硬件功能
@@ -185,6 +236,10 @@ Time(s),CH0,CH1,CH2
 ```bash
 npm test
 ```
+
+测试覆盖：帧编解码往返、流解析在噪声/分包下的重新同步、S.BUS2 帧尾识别、W.BUS 扩展帧尾拒绝、初始对齐字节不计运行期错误、双帧锁定防误判、8E2 波形重建、统计与逐字节对比、捕获 JSON 往返、通用 CSV 解析（含倒序时间归一化）、同步单文件与隔离双文件的 UART 解码/帧对齐/波特率/传播延迟分析，共 15 项。
+
+CI 在 Ubuntu / Windows / macOS 与 Node 20 / 22 上自动运行上述测试。
 
 ## 建议的正式验收记录
 

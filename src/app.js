@@ -19,6 +19,7 @@ import {
 const $ = (selector) => document.querySelector(selector);
 const ui = {
   connect: $('#connectButton'), demo: $('#demoButton'), stop: $('#stopButton'),
+  theme: $('#themeButton'),
   support: $('#serialSupport'), protocolSupport: $('#protocolSupport'),
   statusLight: $('#statusLight'), connectionState: $('#connectionState'),
   deviceLabel: $('#deviceLabel'), frameCount: $('#frameCount'), byteCount: $('#byteCount'),
@@ -775,6 +776,22 @@ ui.connect.addEventListener('click', connectSerial);
 ui.demo.addEventListener('click', startDemo);
 ui.stop.addEventListener('click', stopCapture);
 ui.clear.addEventListener('click', resetCapture);
+
+const THEME_KEY = 'sbus-422-theme';
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
+  ui.theme.textContent = theme === 'light' ? '☀ 亮色' : '◐ 主题';
+}
+(function initTheme() {
+  let theme = 'dark';
+  try { theme = localStorage.getItem(THEME_KEY) || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); } catch { /* ignore */ }
+  applyTheme(theme);
+})();
+ui.theme.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+});
 ui.exportJson.addEventListener('click', exportCapture);
 ui.exportCsv.addEventListener('click', exportCsv);
 ui.exportReport.addEventListener('click', exportReport);
