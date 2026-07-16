@@ -12,7 +12,8 @@ export function parseLogicCaptureText(text, fileName = 'logic-capture.csv') {
   if (headerIndex < 0) headerIndex = looksNumericRow(lines[0]) ? -1 : 0;
   const delimiter = detectDelimiter(lines[Math.max(0, headerIndex)]);
   const header = headerIndex >= 0 ? splitLine(lines[headerIndex], delimiter).map(cleanCell) : [];
-  const columns = findColumns(header, splitLine(lines[Math.max(0, startLineForProbe(headerIndex, lines))], delimiter).length);
+  const probe = splitLine(lines[Math.max(0, startLineForProbe(headerIndex, lines))], delimiter);
+  const columns = findColumns(header, probe.length);
   const timeScale = findTimeScale(header[columns.time] ?? 'Time(s)');
   const startLine = headerIndex + 1;
   const rows = [];
@@ -51,12 +52,17 @@ export function parseLogicCaptureText(text, fileName = 'logic-capture.csv') {
   }
   if (times.length < 2) throw new Error('三个通道在导出区间内没有检测到逻辑变化');
 
+  const columnLabels = columns.channels
+    .sort((a, b) => a.number - b.number)
+    .map(({ number, index }) => header[index] ?? `CH${number}`);
+
   return {
     format: 'logic-capture-text-v1',
     fileName,
     sourceRows: rows.length,
     times: Float64Array.from(times),
     channelNumbers: columns.channels.map(({ number }) => number),
+    columnLabels,
     channels: Object.fromEntries(columns.channels.map(({ number }) => [number, Uint8Array.from(states, (state) => state[number])])),
     duration: times.at(-1),
     originalTimeOffset: firstTime,
@@ -156,10 +162,16 @@ export function analyzeIsolatedCaptures(inputCapture, outputCapture, bitPeriodHi
   };
 }
 
-export function decodeUart8E2(capture, channel, { invert = false, bitPeriod = DEFAULT_BIT_PERIOD } = {}) {
+export function decodeUart8E2(capture, channel, {
+  invert = false,
+  bitPeriod = DEFAULT_BIT_PERIOD,
+  parity = 'even',
+  stopBits = 2,
+} = {}) {
   const edges = getEdges(capture, channel, invert);
   const validBytes = [];
   const invalidFrames = [];
+  const stopCount = Math.max(1, stopBits | 0);
   let busyUntil = -Infinity;
   for (const edge of edges) {
     if (edge.state !== 0 || edge.time < busyUntil) continue;
@@ -167,16 +179,23 @@ export function decodeUart8E2(capture, channel, { invert = false, bitPeriod = DE
     for (let bit = 0; bit < 8; bit += 1) {
       data.push(getStateAt(capture, edge.time + (1.5 + bit) * bitPeriod, channel, invert));
     }
-    const parity = getStateAt(capture, edge.time + 9.5 * bitPeriod, channel, invert);
-    const stop1 = getStateAt(capture, edge.time + 10.5 * bitPeriod, channel, invert);
-    const stop2 = getStateAt(capture, edge.time + 11.5 * bitPeriod, channel, invert);
-    const parityValid = (data.reduce((sum, value) => sum + value, 0) + parity) % 2 === 0;
-    const stopValid = stop1 === 1 && stop2 === 1;
+    const parityBit = parity === 'none' ? 0 : getStateAt(capture, edge.time + 9.5 * bitPeriod, channel, invert);
+    const parityValid = parity === 'none'
+      ? true
+      : parity === 'odd'
+        ? (data.reduce((sum, value) => sum + value, 0) + parityBit) % 2 === 1
+        : (data.reduce((sum, value) => sum + value, 0) + parityBit) % 2 === 0;
+    const stopChecks = [];
+    for (let stop = 0; stop < stopCount; stop += 1) {
+      stopChecks.push(getStateAt(capture, edge.time + (10.5 + stop) * bitPeriod, channel, invert));
+    }
+    const stopValid = stopChecks.every((value) => value === 1);
     const byte = data.reduce((value, bit, index) => value | (bit << index), 0);
     const item = { byte, startTime: edge.time, parityValid, stopValid };
     if (parityValid && stopValid) validBytes.push(item);
     else invalidFrames.push(item);
-    busyUntil = edge.time + 11.8 * bitPeriod;
+    const totalBits = 1 + 8 + (parity === 'none' ? 0 : 1) + stopCount;
+    busyUntil = edge.time + (totalBits - 0.2) * bitPeriod;
   }
   return { validBytes, invalidFrames, totalCharacters: validBytes.length + invalidFrames.length };
 }
@@ -285,16 +304,18 @@ function findColumns(header, columnCount) {
   const time = find(/(?:time|时间)/i);
   const channels = [];
   header.forEach((cell, index) => {
-    const match = cell.match(/(?:ch(?:annel)?\s*|通道\s*)(\d+)/i)
-      ?? (index !== time ? cell.match(/(\d+)\s*$/) : null);
-    if (match) channels.push({ number: Number(match[1]), index });
+    if (index === time) return;
+    const match = cell.match(/(?:ch(?:annel)?\s*|通道\s*)(\d+)/i);
+    if (match) {
+      channels.push({ number: Number(match[1]), index });
+      return;
+    }
+    // Generic headers (e.g. Chinese labels like "SBUS", "淘宝422+", or bare
+    // column numbers). Assign a positional channel number so any logic-analyzer
+    // export can be mapped by the caller.
+    channels.push({ number: channels.length, index });
   });
-  if (time >= 0 && !channels.length) {
-    header.forEach((_, index) => {
-      if (index !== time) channels.push({ number: channels.length, index });
-    });
-  }
-  if (time < 0 || !channels.length) throw new Error('表头必须包含 Time 和至少一个 CH 通道列');
+  if (time < 0 || !channels.length) throw new Error('表头必须包含 Time 和至少一个数据通道列');
   return { time, channels };
 }
 
@@ -369,3 +390,108 @@ function requireChannels(capture, channels, label) {
 function startLineForProbe(headerIndex, lines) {
   return Math.min(lines.length - 1, Math.max(0, headerIndex + 1));
 }
+
+// Map a single multi-channel capture into one or more role-fixed sub-captures.
+// `mapping` uses the original column indices from `parseLogicCaptureText`.
+// A DUT is described by { pos, neg } column indices; the input by { input }.
+function applyRoleMapping(capture, { input, a, b } = {}) {
+  const build = (pos, neg) => {
+    const channels = {
+      0: capture.channels[input ?? pos],
+      1: capture.channels[pos],
+      2: capture.channels[neg],
+    };
+    return { ...capture, channels };
+  };
+  return {
+    input: input != null ? { ...capture, channels: { 0: capture.channels[input] } } : null,
+    a: a ? build(a.pos, a.neg) : null,
+    b: b ? build(b.pos, b.neg) : null,
+  };
+}
+
+// Heuristic mapping for the common LA2016 export where one file holds the shared
+// SBUS input plus two modules' RS-422 ± outputs (e.g. "SBUS", "淘宝422+",
+// "淘宝422-", "自研422+", "自研422-").
+export function autoDetectMapping(capture) {
+  const labels = capture.columnLabels ?? capture.channelNumbers.map((n) => `CH${n}`);
+  const roles = labels.map((label) => {
+    const text = String(label).toLowerCase();
+    const isPos = /422\+|422 \+|\+$|[+＋]$|\+/.test(label) && /422/.test(label);
+    const isNeg = /422[-－]|[-－]$/.test(label) && /422/.test(label);
+    const isSbus = /sbus|s.bus|sbys/.test(text) && !isPos && !isNeg;
+    return { label, isSbus, isPos, isNeg };
+  });
+  const sbus = roles.findIndex((role) => role.isSbus);
+  const positives = roles.map((role, index) => (role.isPos ? index : -1)).filter((index) => index >= 0);
+  const negatives = roles.map((role, index) => (role.isNeg ? index : -1)).filter((index) => index >= 0);
+  const mapping = {};
+  if (sbus >= 0) mapping.input = capture.channelNumbers[sbus];
+  // Pair positives/negatives by position. First pair = DUT-A, second = DUT-B.
+  const pairs = Math.min(positives.length, negatives.length);
+  if (pairs >= 1) mapping.a = { pos: capture.channelNumbers[positives[0]], neg: capture.channelNumbers[negatives[0]] };
+  if (pairs >= 2) mapping.b = { pos: capture.channelNumbers[positives[1]], neg: capture.channelNumbers[negatives[1]] };
+  return mapping;
+}
+
+export function analyzeDualModules(capture, mapping, options = {}) {
+  const mapped = applyRoleMapping(capture, mapping);
+  if (!mapped.input) throw new Error('双模块对比需要指定 SBUS 输入通道');
+  if (!mapped.a && !mapped.b) throw new Error('双模块对比需要至少一个 RS-422 输出对（CH1/CH2）');
+
+  const bitPeriodFor = (side, opts, hint) => {
+    const estimated = estimateBitPeriod(side, 1, hint);
+    if (opts?.baud) {
+      const fromBaud = 1 / opts.baud;
+      // Trust an explicit user baud unless the auto-estimate is close
+      // (within 10%) and the explicit value looks off.
+      if (!estimated || Math.abs(estimated - fromBaud) / fromBaud > 0.1) return fromBaud;
+      return estimated;
+    }
+    return estimated || hint;
+  };
+
+  const analyzeSide = (side, label, opts) => {
+    if (!side) return null;
+    const inputBitPeriod = estimateBitPeriod(mapped.input, 0, DEFAULT_BIT_PERIOD);
+    const inputUart = decodeUart8E2(mapped.input, 0, { invert: true, bitPeriod: inputBitPeriod });
+    const inputFrames = decodeSbusFrames(inputUart.validBytes);
+    const outBitPeriod = bitPeriodFor(side, opts, DEFAULT_BIT_PERIOD);
+    const outUart = decodeUart8E2(side, 1, {
+      invert: false,
+      bitPeriod: outBitPeriod,
+      parity: opts?.parity ?? 'even',
+      stopBits: opts?.stopBits ?? 2,
+    });
+    const outFrames = decodeSbusFrames(outUart.validBytes);
+    const delays = calculatePropagationDelays(side, 1, true, Math.min(inputBitPeriod, outBitPeriod));
+    return {
+      label,
+      baudRate: outBitPeriod ? 1 / outBitPeriod : 0,
+      bitPeriod: outBitPeriod,
+      parity: opts?.parity ?? 'even',
+      stopBits: opts?.stopBits ?? 2,
+      complementRate: calculateComplementRate(side, 1, 2),
+      uart: outUart,
+      frames: outFrames,
+      stats: calculateStats(outFrames),
+      delays,
+      inputFrames,
+    };
+  };
+
+  const dutA = analyzeSide(mapped.a, 'DUT-A (自研纯硬件桥)', options.a);
+  const dutB = analyzeSide(mapped.b, 'DUT-B (商用 MCU 模块)', options.b);
+  const frameComparison = dutA && dutB ? compareFrameSequences(dutA.frames, dutB.frames) : null;
+
+  return {
+    format: 'dual-module-analysis-v1',
+    synchronized: true,
+    sharedInput: Boolean(mapped.input),
+    dutA,
+    dutB,
+    frameComparison,
+    note: '两个模块共享同一 SBUS 输入；各自按所设信号参数（波特率 / 校验 / 停止位）独立解码与估算传播延迟，再按 SBUS 帧内容对齐对比输出一致性。',
+  };
+}
+

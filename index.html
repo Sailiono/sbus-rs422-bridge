@@ -194,6 +194,43 @@
             <label class="button compact file-button">导入输出 CH1/CH2<input id="logicOutputFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
           </div>
         </div>
+        <div class="sync-analysis-note universal-note">
+          <strong>通配多通道</strong>
+          <span>导入 LA2016 等任意逻辑分析仪 CSV（中文列名、任意通道数均可）。上传后自动识别通道并推断角色，您可手动调整每个通道对应 SBUS 输入 / 422+ / 422−，支持一次对比自研与商用两个模块的输出。</span>
+          <div class="logic-imports universal-imports">
+            <label class="button compact file-button">导入多通道 CSV<input id="logicUniversalFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+          </div>
+          <div id="logicMapping" class="logic-mapping" hidden></div>
+          <div class="universal-params" id="logicUniversalParams" hidden>
+            <label class="param-row">DUT-A 信号参数
+              <select id="paramPresetA">
+                <option value="sbus" selected>原 SBUS · 100000 / 8E2</option>
+                <option value="custom">自定义</option>
+              </select>
+            </label>
+            <div class="param-custom" id="paramCustomA" hidden>
+              <label>波特率<input id="paramBaudA" type="number" value="100000" min="1" /></label>
+              <label>校验<select id="paramParityA"><option value="even">Even</option><option value="odd">Odd</option><option value="none">None</option></select></label>
+              <label>停止位<select id="paramStopA"><option value="1">1</option><option value="2">2</option></select></label>
+            </div>
+            <label class="param-row">DUT-B 信号参数
+              <select id="paramPresetB">
+                <option value="sbus">原 SBUS · 100000 / 8E2</option>
+                <option value="custom" selected>自定义 · 商用模块</option>
+              </select>
+            </label>
+            <div class="param-custom" id="paramCustomB" hidden>
+              <label>波特率<input id="paramBaudB" type="number" value="115200" min="1" /></label>
+              <label>校验<select id="paramParityB"><option value="even">Even</option><option value="odd">Odd</option><option value="none">None</option></select></label>
+              <label>停止位<select id="paramStopB"><option value="1">1</option><option value="2">2</option></select></label>
+            </div>
+          </div>
+          <div class="logic-imports universal-actions" id="logicUniversalActions" hidden>
+            <button id="logicAnalyze" class="button compact" type="button">运行分析</button>
+            <button id="logicClearMapping" class="button ghost compact" type="button">清除</button>
+          </div>
+        </div>
+        <div id="dualResult" class="dual-result" hidden></div>
         <div class="logic-summary">
           <div><span>捕获来源</span><strong id="logicSourceStatus">等待 CSV/TXT</strong></div>
           <div><span>分析模式</span><strong id="logicModeStatus">同步单文件优先</strong></div>

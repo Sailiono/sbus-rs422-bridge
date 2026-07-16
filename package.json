@@ -11,6 +11,7 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 8765",
-    "test": "node --test tests/sbus.test.js tests/logic-capture.test.js"
+    "test": "node --test tests/sbus.test.js tests/logic-capture.test.js tests/logic-capture-dual.test.js",
+    "benchmark": "node tools/benchmark-compare.mjs"
   }
 }

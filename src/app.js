@@ -801,6 +801,9 @@ ui.logicInputFile.addEventListener('change', (event) => importLogicCapture(event
 ui.logicOutputFile.addEventListener('change', (event) => importLogicCapture(event, 'output'));
 ui.logicSpan.addEventListener('change', drawLogicCapture);
 ui.logicPosition.addEventListener('input', drawLogicCapture);
+ui.logicUniversalFile?.addEventListener('change', importUniversalCapture);
+ui.logicAnalyze?.addEventListener('click', runDualAnalysis);
+ui.logicClearMapping?.addEventListener('click', clearUniversalMapping);
 ui.byteWindow.addEventListener('input', () => {
   const start = Number(ui.byteWindow.value);
   ui.byteWindowLabel.textContent = `B${start}–B${start + 3}`;
@@ -827,6 +830,172 @@ if ('serial' in navigator && window.isSecureContext) {
   ui.support.textContent = '需 Chrome / Edge · localhost';
   ui.support.className = 'support-tag bad';
   ui.connect.title = 'Web Serial 需要 Chrome/Edge 且页面必须通过 localhost 或 HTTPS 打开';
+}
+
+const ROLE_OPTIONS = [
+  { value: 'ignore', label: '忽略' },
+  { value: 'input', label: 'SBUS 输入 (CH0)' },
+  { value: 'aPos', label: 'DUT-A 422+' },
+  { value: 'aNeg', label: 'DUT-A 422−' },
+  { value: 'bPos', label: 'DUT-B 422+' },
+  { value: 'bNeg', label: 'DUT-B 422−' },
+];
+
+function analyzeUniversalParams(role) {
+  if (role === 'aPos' || role === 'aNeg') {
+    return { baud: 100000, parity: 'even', stopBits: 2, label: 'DUT-A 信号参数' };
+  }
+  if (role === 'bPos' || role === 'bNeg') {
+    return { baud: 115200, parity: 'none', stopBits: 1, label: 'DUT-B 信号参数（商用模块，可改）' };
+  }
+  return null;
+}
+
+async function importUniversalCapture(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    if (!/\.(csv|txt)$/i.test(file.name)) throw new Error('请选择 CSV 或 TXT 原始数字采样文件');
+    const capture = parseLogicCaptureText(await readLogicText(file), file.name);
+    if (capture.channelNumbers.length < 2) throw new Error('文件至少需要两个数据通道');
+    state.universal = { capture, file: file.name, mapping: autoDetectMapping(capture) };
+    renderUniversalMapping();
+    showToast(`已载入 ${file.name}：检测到 ${capture.channelNumbers.length} 个通道`);
+  } catch (error) {
+    showToast(`多通道文件无法读取：${error.message}`);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function renderUniversalMapping() {
+  const { capture, mapping } = state.universal;
+  const labels = capture.columnLabels ?? capture.channelNumbers.map((n) => `CH${n}`);
+  const container = document.getElementById('logicMapping');
+  const roleFor = (number) => {
+    if (mapping.input === number) return 'input';
+    if (mapping.a?.pos === number) return 'aPos';
+    if (mapping.a?.neg === number) return 'aNeg';
+    if (mapping.b?.pos === number) return 'bPos';
+    if (mapping.b?.neg === number) return 'bNeg';
+    return 'ignore';
+  };
+  container.innerHTML = labels.map((label, index) => {
+    const number = capture.channelNumbers[index];
+    const options = ROLE_OPTIONS.map(({ value, label: text }) =>
+      `<option value="${value}"${roleFor(number) === value ? ' selected' : ''}>${text}</option>`).join('');
+    return `<label class="mapping-row"><span class="mapping-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      <select data-channel="${number}" class="mapping-role">${options}</select></label>`;
+  }).join('');
+  container.hidden = false;
+  document.getElementById('logicUniversalParams').hidden = false;
+  document.getElementById('logicUniversalActions').hidden = false;
+  document.getElementById('dualResult').hidden = true;
+  const presetA = document.getElementById('paramPresetA');
+  const customA = document.getElementById('paramCustomA');
+  const presetB = document.getElementById('paramPresetB');
+  const customB = document.getElementById('paramCustomB');
+  const syncA = () => { customA.hidden = presetA.value !== 'custom'; };
+  const syncB = () => { customB.hidden = presetB.value !== 'custom'; };
+  presetA.onchange = syncA;
+  presetB.onchange = syncB;
+  syncA();
+  syncB();
+}
+
+function readCustomParams(which) {
+  const suffix = which === 'A' ? 'A' : 'B';
+  const baud = Number(document.getElementById(`paramBaud${suffix}`).value) || 100000;
+  const parity = document.getElementById(`paramParity${suffix}`).value;
+  const stopBits = Number(document.getElementById(`paramStop${suffix}`).value) || 2;
+  return { baud, parity, stopBits };
+}
+
+function readUniversalMapping() {
+  const { capture, mapping } = state.universal;
+  const roles = {};
+  document.querySelectorAll('#logicMapping .mapping-role').forEach((select) => {
+    roles[Number(select.dataset.channel)] = select.value;
+  });
+  const byRole = (role) => {
+    const entry = Object.entries(roles).find(([, value]) => value === role);
+    return entry ? Number(entry[0]) : null;
+  };
+  const posOf = (prefix) => byRole(`${prefix}Pos`);
+  const negOf = (prefix) => byRole(`${prefix}Neg`);
+  return {
+    input: byRole('input'),
+    a: posOf('a') != null && negOf('a') != null ? { pos: posOf('a'), neg: negOf('a') } : null,
+    b: posOf('b') != null && negOf('b') != null ? { pos: posOf('b'), neg: negOf('b') } : null,
+  };
+}
+
+function runDualAnalysis() {
+  const { capture } = state.universal;
+  const mapping = readUniversalMapping();
+  if (mapping.input == null) { showToast('请至少把一个通道指派为 SBUS 输入'); return; }
+  if (!mapping.a && !mapping.b) { showToast('请至少指派一组 422+ / 422− 输出'); return; }
+  try {
+    const params = {};
+    if (mapping.a) {
+      params.a = document.getElementById('paramPresetA').value === 'custom'
+        ? readCustomParams('A')
+        : analyzeUniversalParams('aPos');
+    }
+    if (mapping.b) {
+      params.b = document.getElementById('paramPresetB').value === 'custom'
+        ? readCustomParams('B')
+        : analyzeUniversalParams('bPos');
+    }
+    const result = analyzeDualModules(capture, mapping, params);
+    renderDualResult(result);
+  } catch (error) {
+    showToast(`双模块分析失败：${error.message}`);
+  }
+}
+
+function sideSummary(side, fallback) {
+  if (!side) return `<div class="dual-side"><h4>${fallback}</h4><p class="dual-empty">未指派或未解析到数据</p></div>`;
+  const frames = side.frames.length;
+  const invalid = side.uart.invalidFrames.length;
+  const note = frames === 0
+    ? `<p class="dual-warn">未解析到有效 ${side.parity === 'none' ? '8N1' : '8E2'} SBUS 字节帧。商用模块常把 100k SBUS 转成不同的波特率 / 校验 / 私有格式，输出并非逐字节透传——这本身即是两模块差异的证据。</p>`
+    : '';
+  return `<div class="dual-side">
+    <h4>${side.label}</h4>
+    <div class="dual-metrics">
+      <div><span>输出波特率</span><strong>${side.baudRate.toFixed(0)} bit/s</strong></div>
+      <div><span>帧格式</span><strong>${side.baudRate.toFixed(0)} / 8 / ${side.parity === 'none' ? 'N' : side.parity[0].toUpperCase()} / ${side.stopBits}</strong></div>
+      <div><span>有效 SBUS 帧</span><strong>${frames}</strong></div>
+      <div><span>422 互补率</span><strong>${(side.complementRate * 100).toFixed(4)}%</strong></div>
+      <div><span>UART 有效 / 无效字节</span><strong>${side.uart.validBytes.length} / ${invalid}</strong></div>
+    </div>${note}
+  </div>`;
+}
+
+function renderDualResult(result) {
+  const el = document.getElementById('dualResult');
+  const comparison = result.frameComparison;
+  const compareText = comparison && comparison.comparable
+    ? `<div class="dual-compare"><strong>两路输出逐帧对比：</strong>${comparison.matched}/${comparison.comparable} 帧一致（${(comparison.matchRate * 100).toFixed(2)}%）。偏移 ${signed(comparison.offset)} 帧。</div>`
+    : `<div class="dual-compare"><strong>两路输出逐帧对比：</strong>无法对齐（至少一路未解析到有效 SBUS 帧）。</div>`;
+  el.innerHTML = `
+    <div class="dual-head">双模块输出对比 · 共享 SBUS 输入</div>
+    <div class="dual-grid">
+      ${sideSummary(result.dutA, 'DUT-A（自研纯硬件桥）未指派')}
+      ${sideSummary(result.dutB, 'DUT-B（商用 MCU 模块）未指派')}
+    </div>
+    ${compareText}
+    <p class="dual-note">${escapeHtml(result.note)}</p>`;
+  el.hidden = false;
+}
+
+function clearUniversalMapping() {
+  state.universal = null;
+  document.getElementById('logicMapping').hidden = true;
+  document.getElementById('logicMapping').innerHTML = '';
+  document.getElementById('logicUniversalActions').hidden = true;
+  document.getElementById('dualResult').hidden = true;
 }
 
 createChannelRows();
