@@ -9,3 +9,6 @@ tmp/
 sbus-capture-*.json
 sbus-frames-*.csv
 sbus-verification-report-*.html
+
+# Local reference captures / vendor material (kept locally, never pushed)
+refs/

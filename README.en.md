@@ -52,7 +52,8 @@ index.html ── styles.css ── src/app.js (Web Serial + live UI + import/ex
 sbus-rs422-bridge/
 ├── .github/workflows/ci.yml   # cross-platform automated tests
 ├── docs/
-│   ├── comparative-benchmark-plan.md   # pure-hardware bridge vs commercial MCU module benchmark plan
+│   ├── dual-module-analysis.md         # general dual-UART module analysis tool guide
+│   ├── 自研模块能力验证.md              # self-developed bridge capability verification report
 │   └── protocol-compatibility.md       # SBUS variants and SBUS-like protocol pitfalls
 ├── hardware/                  # schematic PDF and hardware design goals (editable sources pending)
 ├── src/
@@ -94,7 +95,7 @@ For specific components, polarity selection, and the mode table, see [`hardware/
 - [ ] Publish raw captures, test environment, statistical definitions, and a reproducible report.
 - [ ] Based on measured results, explain the value of pure-hardware transparent conversion in latency, determinism, and data transparency — without preset conclusions.
 
-For the detailed test matrix, metric definitions, and the checklist for continuing work, see [`docs/comparative-benchmark-plan.md`](docs/comparative-benchmark-plan.md).
+For the detailed test matrix, metric definitions, and dual-module analysis method, see [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
 
 ## Acceptance Goals
 
@@ -227,7 +228,8 @@ Each byte is reconstructed as `1 start + 8 data (LSB first) + even parity + 2 st
 - `src/logic-capture.js`: generic logic-capture CSV/TXT parsing, UART decoding, frame alignment, and timing analysis.
 - `src/app.js`: Web Serial capture, live UI, import/export.
 - `docs/protocol-compatibility.md`: SBUS variants, SBUS-like protocols, and common compatibility pitfalls.
-- `docs/comparative-benchmark-plan.md`: benchmark TODO for the pure-hardware bridge vs a commercial MCU module.
+- `docs/dual-module-analysis.md`: general dual-UART module analysis tool guide.
+- `docs/自研模块能力验证.md`: self-developed bridge capability verification report.
 - `tests/`: protocol and logic-analysis automated tests.
 - `hardware/`: hardware design goals and the location for future open-source material.
 - `CONTRIBUTING.md`: contributions, test data, and safety notes.

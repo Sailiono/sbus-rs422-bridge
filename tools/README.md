@@ -1,7 +1,7 @@
 # Benchmark Comparison Tool
 
 `benchmark-compare.mjs` computes the metrics defined in
-[`docs/comparative-benchmark-plan.md`](../docs/comparative-benchmark-plan.md)
+[`docs/dual-module-analysis.md`](../docs/dual-module-analysis.md)
 for one or two devices under test (DUT), and emits a Markdown report. It reuses the
 repository's own `src/sbus.js` and `src/logic-capture.js` so the numbers match
 what the host tool reports.
@@ -77,5 +77,5 @@ transparency as "Better" — a raw indicator, not a verdict.
 - Archive raw captures and this report together; do not delete data unfavorable
   to either DUT.
 - Keep one variable changed at a time for boundary-condition runs.
-- See `docs/comparative-benchmark-plan.md` for the full test matrix and
+- See `docs/dual-module-analysis.md` for the full test matrix and
   statistical definitions.
