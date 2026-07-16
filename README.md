@@ -1,5 +1,7 @@
 # SBUS-RS422 Bridge
 
+> 中文文档 ｜ [English](README.en.md)
+
 [![CI](https://github.com/Sailiono/sbus-rs422-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Sailiono/sbus-rs422-bridge/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-15%20passing-brightgreen)](#测试)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#)
