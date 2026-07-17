@@ -96,9 +96,10 @@ sbus-rs422-bridge/
 
 - [x] 完成自研纯硬件桥的数据透明性、零丢帧与零引入抖动验证；
 - [ ] 覆盖极端工况（长线、宽温、供电波动、强干扰）下的稳定性；
-- [ ] 若需与商用模块对比，须选用**同协议 SBUS 透传模块**；不同协议模块
-      （如 Modbus-RTU 从站）不可直接对比，双 UART 分析方法的适用范围见
-      [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md)。
+- [ ] 与商用「原始 SBUS 协议」版（帧缓冲式转换：收一帧→改 115200/8N1→发）
+      做**帧级延迟对比**，体现纯硬件零延迟 vs 帧缓冲 ~7ms 延迟的差异；
+      对比方法见 [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md)。
+      不同协议模块（如 Modbus-RTU 从站）不可直接对比。
 
 具体测试矩阵、指标定义与双模块分析方法见 [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md)。
 

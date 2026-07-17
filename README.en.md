@@ -93,7 +93,7 @@ For specific components, polarity selection, and the mode table, see [`hardware/
 
 - [x] Verify data transparency, zero lost frames, and zero injected jitter of the pure-hardware bridge.
 - [ ] Cover stability under extreme conditions (long cable, wide temperature, supply variation, strong interference).
-- [ ] If comparing with a commercial module, use a **same-protocol SBUS transparent module**; modules with a different protocol (e.g. Modbus-RTU slave) are not directly comparable. Scope of the dual-UART analysis method is in [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
+- [ ] Compare with the commercial "raw SBUS protocol" module (frame-buffered conversion: receive a frame → re-emit at 115200/8N1) using **frame-level latency** — showing pure-hardware zero-latency vs frame-buffered ~7 ms latency. Method in [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md). Modules with a different protocol (e.g. Modbus-RTU slave) are not directly comparable.
 
 For the detailed test matrix, metric definitions, and dual-module analysis method, see [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
 
