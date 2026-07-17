@@ -93,7 +93,7 @@ For specific components, polarity selection, and the mode table, see [`hardware/
 
 - [x] Verify data transparency, zero lost frames, and zero injected jitter of the pure-hardware bridge.
 - [ ] Cover stability under extreme conditions (long cable, wide temperature, supply variation, strong interference).
-- [ ] Compare with the commercial "raw SBUS protocol" module (frame-buffered conversion: receive a frame → re-emit at 115200/8N1) using **frame-level latency** — showing pure-hardware zero-latency vs frame-buffered ~7 ms latency. Method in [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md). Modules with a different protocol (e.g. Modbus-RTU slave) are not directly comparable.
+- [x] Compared with the commercial "raw SBUS protocol" module (MCU frame-buffered conversion) using measured frame-level latency: **pure-hardware ≤0.5µs zero-latency vs commercial 1.86ms fixed latency**. Full report in [`docs/商用对比验证.md`](docs/商用对比验证.md) (incl. market-gap argument).
 
 For the detailed test matrix, metric definitions, and dual-module analysis method, see [`docs/dual-module-analysis.md`](docs/dual-module-analysis.md).
 

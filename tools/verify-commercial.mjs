@@ -28,9 +28,9 @@ if (cols.length < 3) { console.error('需至少 3 路通道 (SBUS, 422+, 422-)')
 const [SBUS, P, N] = cols;
 
 // 采样率检查: 排除逻辑分析仪同一时刻多通道记录的亚微秒成对间隔
-const dts = cap.times.slice(1).map((t, i) => t - cap.times[i]).filter(d => d > 1e-6);
-const dtMin = dts.length ? Math.min(...dts) : 0;
-const minBaud = dtMin ? 1 / dtMin : 0;
+let dtMin = Infinity;
+for (let i = 1; i < cap.times.length; i++) { const d = cap.times[i] - cap.times[i - 1]; if (d > 1e-6 && d < dtMin) dtMin = d; }
+const minBaud = dtMin !== Infinity ? 1 / dtMin : 0;
 console.log(`采样率上限: 最快间隔 ${(dtMin * 1e6).toFixed(2)} µs ≈ ${(minBaud / 1000).toFixed(0)} kS/s`);
 const needRate = Math.max(100000, baud) * 8;
 console.log(`可靠解码需 ≥ ${(needRate / 1000).toFixed(0)} kS/s (每bit 8点)`);
